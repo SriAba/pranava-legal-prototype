@@ -28,7 +28,7 @@
       <div class="verify-layout">
         <div class="card">
           <div class="card-head"><h3>Documents in sequence</h3><span class="muted small" id="qCount"></span></div>
-          <div id="queue"></div>
+          <div id="queue" class="queue-scroll"></div>
         </div>
         <div id="stage"></div>
       </div>
@@ -86,7 +86,7 @@
 
         $("stage").innerHTML =
           '<div class="card"><div class="card-head"><div><div class="small muted">Document ' + (idx + 1) + " of " + c.documents.length + "</div><h2>" + esc(d.name) + "</h2></div>" + (verified ? '<span class="badge b-green">Verified ' + fmtDate(d.ov.at) + "</span>" : '<span class="badge b-amber">Awaiting verification</span>') + "</div>" +
-          '<div class="card-body"><div class="grid" style="grid-template-columns:1.3fr 1fr;gap:20px">' +
+          '<div class="card-body"><div class="grid verify-stage" style="grid-template-columns:1.3fr 1fr;gap:20px">' +
             '<div class="viewer" style="min-height:440px;padding:16px">' + preview + "</div>" +
             '<div class="stack">' +
               '<div class="kv" style="grid-template-columns:1fr 1fr"><div><span>File type</span><b>' + esc(fileType(d.fileTypeId).name) + "</b></div><div><span>Reference</span><b>" + esc(d.refNo || "—") + "</b></div>" +

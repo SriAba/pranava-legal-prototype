@@ -248,7 +248,7 @@
         "</aside>" +
         '<div class="main">' +
           '<header class="topbar">' +
-            '<div class="crumbs">' + (opts.crumbs || "") + "</div>" +
+            '<div class="topbar-left"><button class="icon-btn menu-btn" id="menuBtn" title="Menu" aria-label="Open menu">' + icon("list", 'width="18" height="18"') + '</button><a href="cases.html"><img class="mobile-mark" src="assets/img/logo-mark.svg" alt="Pranava Legal Solutions"></a><div class="crumbs">' + (opts.crumbs || "") + "</div></div>" +
             '<div class="topbar-right">' +
               '<span class="role-pill">' + ROLE_LABEL[me.role] + "</span>" +
               '<button class="icon-btn" id="bellBtn" title="Notifications">' + icon("bell", 'width="18" height="18"') + (unread ? '<span class="dot">' + unread + "</span>" : "") + "</button>" +
@@ -257,6 +257,7 @@
           "</header>" +
           '<main class="content" id="content"></main>' +
         "</div>" +
+        '<div class="nav-backdrop" id="navBackdrop"></div>' +
       "</div>" +
       '<div class="toast-wrap" id="toasts"></div>';
     const holder = document.createElement("div");
@@ -264,6 +265,12 @@
     document.body.prepend(...holder.childNodes);
     const contentEl = document.getElementById("content");
     if (content) { contentEl.appendChild(content); content.style.display = ""; }
+
+    const appEl = document.querySelector(".app");
+    document.getElementById("menuBtn").onclick = (e) => { e.stopPropagation(); appEl.classList.toggle("nav-open"); };
+    document.getElementById("navBackdrop").onclick = () => appEl.classList.remove("nav-open");
+    document.querySelectorAll(".nav-link").forEach((a) => a.addEventListener("click", () => appEl.classList.remove("nav-open")));
+    labelTables(); new MutationObserver(labelTables).observe(contentEl, { childList: true, subtree: true });
 
     document.getElementById("resetDemo").onclick = () => {
       if (confirm("Reset all demo data to the original sample cases? Anything you added will be removed.")) { reset(); location.reload(); }
@@ -273,6 +280,17 @@
     document.addEventListener("click", (e) => { const p = document.querySelector(".popover"); if (p && !p.contains(e.target)) p.remove(); });
     flushToasts();
     return me;
+  }
+
+  // Copies each column header onto its cells (data-label) so tables can render as cards on phones.
+  function labelTables() {
+    document.querySelectorAll("table.table").forEach((t) => {
+      const heads = [...t.querySelectorAll("thead th")].map((th) => th.textContent.trim());
+      t.querySelectorAll("tbody tr").forEach((tr) => [...tr.children].forEach((td, i) => {
+        const l = td.hasAttribute("colspan") ? "" : (heads[i] || "");
+        if (td.getAttribute("data-label") !== l) td.setAttribute("data-label", l);
+      }));
+    });
   }
 
   function togglePopover(kind, me) {

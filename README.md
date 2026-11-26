@@ -57,6 +57,9 @@ The login screen also has one-click buttons for the four main roles. Sign out fr
 5. **Lawyer** → status *Original Verification* → **Paralegal** → Original Verification screen → verify each document.
 6. **Lawyer** → status *Resolved*, attach a report → **Client** → pay → final report unlocks.
 
+## Works on phones and tablets
+The layout adapts to screen size. Below 1024 px the menu becomes a slide-out drawer (☰ button). On phones, tables turn into cards, forms go to a single column, the case workspace comes before the timeline, and pop-ups open as bottom sheets.
+
 ## How it works
 - `assets/js/data.js` holds the sample data. On first load it is copied into the browser's `localStorage`, so anything you add carries over between screens and visits.
 - **Reset demo data** (bottom of the sidebar) restores the original sample data.
