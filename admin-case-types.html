@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Case Types · Pranava Legal Solutions</title>
+  <link rel="icon" href="assets/img/favicon.png">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+  <div id="page" style="display:none">
+    <div class="page-head">
+      <div><h1>Case types</h1><p>Paralegals pick a case type when opening a file. It decides the advance amount and whether original verification is needed.</p></div>
+      <div class="actions"><button class="btn btn-gold" id="addBtn"></button></div>
+    </div>
+    <div class="card"><div class="table-wrap"><table class="table" id="tbl"></table></div></div>
+  </div>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    (function () {
+      PLS.shell({ active: "case-types", roles: ["admin"], crumbs: "Administration / <strong>Case types</strong>" });
+      const { db, esc, icon, money } = PLS;
+      document.getElementById("addBtn").innerHTML = icon("plus") + "Add case type";
+      function render() {
+        const rows = db().caseTypes.map((t) => {
+          const used = db().cases.filter((c) => c.typeId === t.id).length;
+          return '<tr><td><b>' + esc(t.name) + '</b><div class="small muted">' + esc(t.description || "") + "</div></td>" +
+            "<td>" + (t.advanceRequired ? '<span class="badge b-blue">Yes · ' + money(t.advanceAmount) + "</span>" : '<span class="badge b-gray">No</span>') + "</td>" +
+            "<td>" + money(t.finalFee) + "</td>" +
+            "<td>" + (t.ovRequired ? '<span class="badge b-purple">Required</span>' : '<span class="badge b-gray">Not required</span>') + "</td>" +
+            "<td>" + used + "</td>" +
+            "<td>" + (t.active ? '<span class="badge b-green">Active</span>' : '<span class="badge b-gray">Inactive</span>') + "</td>" +
+            '<td style="text-align:right"><button class="btn btn-ghost btn-sm" data-edit="' + t.id + '">' + icon("edit") + "Edit</button></td></tr>";
+        }).join("");
+        document.getElementById("tbl").innerHTML = "<thead><tr><th>Case type</th><th>Advance payment</th><th>Default final fee</th><th>Original verification</th><th>Cases</th><th>Status</th><th></th></tr></thead><tbody>" + rows + "</tbody>";
+        document.querySelectorAll("[data-edit]").forEach((b) => b.onclick = () => edit(PLS.byId(db().caseTypes, b.dataset.edit)));
+      }
+      function edit(t) {
+        const isNew = !t;
+        t = t || { name: "", description: "", advanceRequired: true, advanceAmount: 5000, finalFee: 10000, ovRequired: false, active: true };
+        PLS.modal({
+          title: isNew ? "Add case type" : "Edit case type",
+          body: '<div class="form-grid">' +
+            '<div class="field full"><label>Name <span class="req">*</span></label><input type="text" id="m_name" value="' + esc(t.name) + '"></div>' +
+            '<div class="field full"><label>Description</label><input type="text" id="m_desc" value="' + esc(t.description) + '"></div>' +
+            '<div class="field full"><label class="row" style="gap:12px"><span class="switch"><input type="checkbox" id="m_adv" ' + (t.advanceRequired ? "checked" : "") + '><span></span></span>Advance payment required</label></div>' +
+            '<div class="field" id="m_amtBox"><label>Advance amount (₹)</label><input type="number" id="m_amt" value="' + t.advanceAmount + '"><span class="hint">Auto-filled when a paralegal opens a case of this type.</span></div>' +
+            '<div class="field"><label>Default final fee (₹)</label><input type="number" id="m_fee" value="' + t.finalFee + '"><span class="hint">Lawyer can adjust when resolving.</span></div>' +
+            '<div class="field full"><label class="row" style="gap:12px"><span class="switch"><input type="checkbox" id="m_ov" ' + (t.ovRequired ? "checked" : "") + '><span></span></span>Original verification required</label></div>' +
+            '<div class="field full"><label class="row" style="gap:12px"><span class="switch"><input type="checkbox" id="m_act" ' + (t.active ? "checked" : "") + '><span></span></span>Active (available for new cases)</label></div>' +
+            "</div>",
+          foot: '<button class="btn btn-outline" data-close>Cancel</button><button class="btn btn-primary" id="m_save">Save</button>',
+          onOpen: (el, close) => {
+            const sync = () => el.querySelector("#m_amtBox").style.opacity = el.querySelector("#m_adv").checked ? 1 : .4;
+            el.querySelector("#m_adv").onchange = sync; sync();
+            el.querySelector("#m_save").onclick = () => {
+              const name = el.querySelector("#m_name").value.trim();
+              if (!name) return PLS.toast("Name required", "");
+              Object.assign(t, { name, description: el.querySelector("#m_desc").value.trim(), advanceRequired: el.querySelector("#m_adv").checked, advanceAmount: el.querySelector("#m_adv").checked ? Number(el.querySelector("#m_amt").value || 0) : 0, finalFee: Number(el.querySelector("#m_fee").value || 0), ovRequired: el.querySelector("#m_ov").checked, active: el.querySelector("#m_act").checked });
+              if (isNew) { t.id = PLS.uid("ct"); db().caseTypes.push(t); }
+              PLS.save(); close(); render(); PLS.toast(isNew ? "Case type added" : "Case type updated", esc(name));
+            };
+          }
+        });
+      }
+      document.getElementById("addBtn").onclick = () => edit(null);
+      render();
+    })();
+  </script>
+</body>
+</html>

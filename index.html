@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in · Pranava Legal Solutions</title>
+  <link rel="icon" href="assets/img/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+  <div class="login-page">
+    <section class="login-art">
+      <img class="big-mark" src="assets/img/logo-mark.svg" alt="">
+      <img src="assets/img/logo-light.svg" alt="Pranava Legal Solutions" style="height:64px;align-self:flex-start">
+      <div style="position:relative">
+        <h2>Every file, every step, <em>clearly in view.</em></h2>
+        <p>One place for clients, paralegals and lawyers to move a case from first documents to final opinion — with updates sent the moment something changes.</p>
+        <div class="points">
+          <div id="pt1"></div>
+          <div id="pt2"></div>
+          <div id="pt3"></div>
+        </div>
+      </div>
+      <p style="font-size:12px;opacity:.6">© 2026 Pranava Legal Solutions · Bengaluru</p>
+    </section>
+
+    <section class="login-form-wrap">
+      <form class="login-form" id="loginForm" autocomplete="off">
+        <img src="assets/img/logo.svg" alt="Pranava Legal Solutions" style="height:56px;margin-bottom:28px">
+        <h1>Welcome back</h1>
+        <p class="muted" style="margin:6px 0 24px">Sign in with the credentials shared by the office.</p>
+
+        <div class="stack">
+          <div class="field">
+            <label for="username">Username or email</label>
+            <input type="text" id="username" placeholder="e.g. client" required>
+          </div>
+          <div class="field">
+            <div class="row between"><label for="password">Password</label><a href="#" class="small" id="forgot">Forgot password?</a></div>
+            <input type="password" id="password" placeholder="••••••••" required>
+          </div>
+          <div class="callout danger hidden" id="err"></div>
+          <button class="btn btn-primary btn-lg btn-block" type="submit">Sign in</button>
+        </div>
+
+        <div class="divider">Prototype — sign in as a demo user</div>
+        <div class="demo-roles" id="demoRoles"></div>
+      </form>
+    </section>
+  </div>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    (function () {
+      const { db, icon, login, esc, initials } = PLS;
+      const pts = [["checkCircle", "Track pending, in-progress and closed files"], ["shield", "Original verification with clear status"], ["bell", "Email, SMS and in-app updates"]];
+      pts.forEach((p, i) => document.getElementById("pt" + (i + 1)).innerHTML = icon(p[0]) + "<span>" + p[1] + "</span>");
+
+      const demos = [
+        ["admin", "Admin", "Ananya Rao"], ["paralegal", "Paralegal", "Kavya Menon"],
+        ["lawyer", "Lawyer", "Adv. Raghav Iyer"], ["client", "Client", "Suresh Kumar"]
+      ];
+      document.getElementById("demoRoles").innerHTML = demos.map((d) =>
+        '<button type="button" class="demo-role" data-u="' + d[0] + '"><div class="avatar">' + initials(d[2]) + "</div><div><b>" + d[1] + "</b><span>" + esc(d[2]) + "</span></div></button>").join("");
+
+      function go(u) { login(u); location.href = "cases.html"; }
+      document.querySelectorAll(".demo-role").forEach((b) => b.onclick = () => go(db().users.find((u) => u.username === b.dataset.u)));
+
+      document.getElementById("loginForm").onsubmit = (e) => {
+        e.preventDefault();
+        const un = document.getElementById("username").value.trim().toLowerCase();
+        const pw = document.getElementById("password").value;
+        const u = db().users.find((x) => (x.username.toLowerCase() === un || (x.email || "").toLowerCase() === un) && x.password === pw);
+        const err = document.getElementById("err");
+        if (!u) { err.textContent = "Incorrect username or password. Try one of the demo users below."; err.classList.remove("hidden"); return; }
+        go(u);
+      };
+      document.getElementById("forgot").onclick = (e) => { e.preventDefault(); PLS.toast("Password reset", "In the live system a reset link is emailed to you."); };
+    })();
+  </script>
+</body>
+</html>

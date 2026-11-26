@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Original Verification · Pranava Legal Solutions</title>
+  <link rel="icon" href="assets/img/favicon.png">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+  <div id="page" style="display:none">
+    <div class="page-head">
+      <div>
+        <h1>Original verification</h1>
+        <p>Compare each soft copy with the original the client brought in. Marking one verified loads the next automatically.</p>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-body row wrap" style="gap:18px;align-items:flex-end">
+        <div class="field" style="flex:1;min-width:320px"><label>Select case</label><select id="caseId"></select></div>
+        <div style="flex:1;min-width:260px" id="progWrap"></div>
+      </div>
+    </div>
+
+    <div id="work" class="hidden">
+      <div class="verify-layout">
+        <div class="card">
+          <div class="card-head"><h3>Documents in sequence</h3><span class="muted small" id="qCount"></span></div>
+          <div id="queue"></div>
+        </div>
+        <div id="stage"></div>
+      </div>
+    </div>
+    <div id="emptyState" class="card"><div class="empty">Select a case to load its documents.</div></div>
+  </div>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    (function () {
+      const me = PLS.shell({ active: "verify", roles: ["admin", "paralegal", "lawyer"], crumbs: "<strong>Original verification</strong>" });
+      const { db, esc, icon, user, fileType, caseType, fmtDate, fmtDateTime, ovSummary } = PLS;
+      const $ = (id) => document.getElementById(id);
+      let c = null, idx = 0;
+
+      const eligible = db().cases.filter((x) => caseType(x.typeId).ovRequired && x.status !== "Resolved" && x.documents.length)
+        .sort((a, b) => (a.status === "Original Verification" ? -1 : 1) - (b.status === "Original Verification" ? -1 : 1));
+      $("caseId").innerHTML = '<option value="">Choose a case…</option>' + eligible.map((x) => {
+        const ov = ovSummary(x);
+        return '<option value="' + x.id + '">' + (x.status === "Original Verification" ? "● " : "") + x.fileNo + " — " + esc(user(x.clientId).name) + " — " + ov.n + "/" + ov.total + " verified</option>";
+      }).join("");
+
+      function select(id) {
+        c = PLS.getCase(id);
+        $("work").classList.toggle("hidden", !c);
+        $("emptyState").classList.toggle("hidden", !!c);
+        if (!c) { $("progWrap").innerHTML = ""; return; }
+        history.replaceState(null, "", "?case=" + c.id);
+        const firstOpen = c.documents.findIndex((d) => !(d.ov && d.ov.verified));
+        idx = firstOpen === -1 ? 0 : firstOpen;
+        render();
+      }
+
+      function render() {
+        const ov = ovSummary(c);
+        $("progWrap").innerHTML = '<div class="row between small" style="margin-bottom:6px"><b>' + esc(user(c.clientId).name) + " · " + esc(caseType(c.typeId).name) + '</b><span class="muted">' + ov.n + " of " + ov.total + " verified</span></div>" + '<div class="progress"><div style="width:' + (ov.total ? (ov.n / ov.total) * 100 : 0) + '%"></div></div>';
+        $("qCount").textContent = ov.n + "/" + ov.total;
+        $("queue").innerHTML = c.documents.map((d, i) => '<div class="queue-item ' + (i === idx ? "active " : "") + (d.ov && d.ov.verified ? "done" : "") + '" data-i="' + i + '"><span class="n">' + (d.ov && d.ov.verified ? "✓" : i + 1) + '</span><div style="min-width:0"><b style="color:var(--navy-800)">' + esc(d.name) + '</b><div class="small muted">' + esc(fileType(d.fileTypeId).name) + "</div></div></div>").join("");
+        document.querySelectorAll(".queue-item").forEach((q) => q.onclick = () => { idx = +q.dataset.i; render(); });
+
+        if (ov.done) {
+          $("stage").innerHTML = '<div class="card"><div class="lock-screen"><div class="big-ico" style="background:var(--green-100);color:var(--green-600)">' + icon("checkCircle") + '</div><h2>Original verification complete</h2><p class="muted" style="margin:8px 0 18px">All ' + ov.total + " documents on " + c.fileNo + " match their originals. The client and lawyer have been notified.</p>" +
+            '<div class="row" style="justify-content:center"><a class="btn btn-primary" href="case.html?id=' + c.id + '">Open case</a><button class="btn btn-outline" id="nextCase">Next case</button></div></div></div>';
+          $("nextCase").onclick = () => { const n = eligible.find((x) => x.id !== c.id && !ovSummary(x).done); if (n) { $("caseId").value = n.id; select(n.id); } else PLS.toast("All caught up", "No other cases are waiting for verification."); };
+          return;
+        }
+
+        const d = c.documents[idx];
+        const verified = d.ov && d.ov.verified;
+        const lines = Array.from({ length: 12 }, (_, i) => '<div class="line" style="width:' + (60 + ((i * 37) % 40)) + '%"></div>').join("");
+        const preview = d.data && /^data:image\//.test(d.data) ? '<img class="preview" src="' + d.data + '" style="height:420px">'
+          : d.data && /^data:application\/pdf/.test(d.data) ? '<iframe src="' + d.data + '" style="height:420px"></iframe>'
+          : '<div class="paper" style="max-width:380px">' + (verified ? '<div class="stamp ok">ORIGINAL VERIFIED</div>' : '<div class="stamp">SOFT COPY</div>') + "<h4>" + esc(fileType(d.fileTypeId).name.toUpperCase()) + '</h4><div class="sub">' + esc(d.refNo || "") + "</div>" + lines + '<div class="seal">SEAL &amp;<br>SIGNATURE</div></div>';
+
+        $("stage").innerHTML =
+          '<div class="card"><div class="card-head"><div><div class="small muted">Document ' + (idx + 1) + " of " + c.documents.length + "</div><h2>" + esc(d.name) + "</h2></div>" + (verified ? '<span class="badge b-green">Verified ' + fmtDate(d.ov.at) + "</span>" : '<span class="badge b-amber">Awaiting verification</span>') + "</div>" +
+          '<div class="card-body"><div class="grid" style="grid-template-columns:1.3fr 1fr;gap:20px">' +
+            '<div class="viewer" style="min-height:440px;padding:16px">' + preview + "</div>" +
+            '<div class="stack">' +
+              '<div class="kv" style="grid-template-columns:1fr 1fr"><div><span>File type</span><b>' + esc(fileType(d.fileTypeId).name) + "</b></div><div><span>Reference</span><b>" + esc(d.refNo || "—") + "</b></div>" +
+              (d.fromDate ? "<div><span>From</span><b>" + fmtDate(d.fromDate) + "</b></div><div><span>To</span><b>" + fmtDate(d.toDate) + "</b></div>" : "") +
+              "<div><span>Uploaded</span><b>" + fmtDate(d.uploadedAt) + "</b></div><div><span>By</span><b>" + esc(user(d.uploadedBy).name) + "</b></div></div>" +
+              (d.description ? '<div class="callout info">' + icon("info") + "<div>" + esc(d.description) + "</div></div>" : "") +
+              '<div><div class="label" style="margin-bottom:8px">Checklist</div><div class="stack" style="gap:8px">' +
+                ["Original matches the soft copy page by page", "Seals, stamps and signatures present", "Reference number / dates match", "No visible alterations or overwriting"].map((x, i) => '<label class="check small"><input type="checkbox" class="ck" ' + (verified ? "checked disabled" : "") + "><span>" + x + "</span></label>").join("") +
+              "</div></div>" +
+              (verified ? '<div class="callout success">' + icon("checkCircle") + "<div>Verified by <b>" + esc(user(d.ov.by).name) + "</b> on " + fmtDateTime(d.ov.at) + "</div></div>" :
+              '<div class="stack" style="gap:8px;margin-top:auto"><button class="btn btn-success btn-lg btn-block" id="verifyBtn">' + icon("shield") + "Mark original verified &amp; next</button>" +
+              '<div class="row"><button class="btn btn-outline" style="flex:1;justify-content:center" id="skipBtn">Skip for now</button><button class="btn btn-danger" style="flex:1;justify-content:center" id="flagBtn">' + icon("alert") + "Flag mismatch</button></div></div>") +
+            "</div>" +
+          "</div></div></div>";
+
+        if (!verified) {
+          $("verifyBtn").onclick = () => {
+            const unchecked = [...document.querySelectorAll(".ck")].some((x) => !x.checked);
+            if (unchecked && !confirm("Not every checklist item is ticked. Mark as verified anyway?")) return;
+            d.ov = { verified: true, by: me.id, at: PLS.now() };
+            const s = ovSummary(c);
+            PLS.addTimeline(c, me.id, "verify", "Original verified: " + d.name + " (" + s.n + "/" + s.total + ")");
+            if (s.done) {
+              PLS.notify(c.clientId, c.id, "Original Verification completed", "File " + c.fileNo + ": all " + s.total + " documents have been verified against the originals. Your lawyer will now give the final review.", ["in-app", "email", "sms"]);
+              PLS.notify(c.lawyerId, c.id, "Original Verification completed", c.fileNo + " is ready for final review.", ["in-app"]);
+            } else {
+              PLS.toast("Verified", esc(d.name) + " — loading next document");
+            }
+            PLS.save();
+            const next = c.documents.findIndex((x, i) => i > idx && !(x.ov && x.ov.verified));
+            idx = next !== -1 ? next : Math.max(0, c.documents.findIndex((x) => !(x.ov && x.ov.verified)));
+            render();
+          };
+          $("skipBtn").onclick = () => { idx = (idx + 1) % c.documents.length; render(); };
+          $("flagBtn").onclick = () => {
+            const why = prompt("What does not match the original?");
+            if (!why) return;
+            d.remarks = d.remarks || []; d.remarks.push({ by: me.id, at: PLS.now(), text: "Original verification issue: " + why });
+            PLS.save();
+            PLS.notify(c.lawyerId, c.id, "Verification issue flagged", c.fileNo + " — " + d.name + ": " + why, ["in-app", "email"]);
+            idx = (idx + 1) % c.documents.length; render();
+          };
+        }
+      }
+
+      $("caseId").onchange = () => select($("caseId").value);
+      const pre = PLS.qs("case"); if (pre) { $("caseId").value = pre; select(pre); }
+    })();
+  </script>
+</body>
+</html>

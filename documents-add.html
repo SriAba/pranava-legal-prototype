@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Add Documents · Pranava Legal Solutions</title>
+  <link rel="icon" href="assets/img/favicon.png">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+  <div id="page" style="display:none">
+    <div class="page-head">
+      <div>
+        <h1>Add documents</h1>
+        <p>Digitise the documents the client brought in. Capture the details and attach the soft copy.</p>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-body row wrap" style="gap:16px">
+        <div class="field" style="flex:1;min-width:280px"><label>Case <span class="req">*</span></label><select id="caseId"></select></div>
+        <div id="caseMeta" style="flex:2;min-width:300px"></div>
+      </div>
+    </div>
+
+    <div id="body" class="hidden">
+      <div class="split">
+        <div class="stack">
+          <div id="reqBox"></div>
+          <form class="card" id="f">
+            <div class="card-head"><h2>Document details</h2><span class="muted small">Fields marked <span class="req">*</span> are required</span></div>
+            <div class="card-body form-grid">
+              <div class="field"><label>File type <span class="req">*</span></label><select id="fileTypeId" required></select></div>
+              <div class="field"><label>Reference / document no.</label><input type="text" id="refNo" placeholder="e.g. JPN-1-04412/2011"></div>
+              <div class="field full"><label>Document name <span class="req">*</span></label><input type="text" id="name" required placeholder="e.g. Sale Deed — 2011 (Ramesh → Prakash)"></div>
+              <div class="field dates hidden"><label>From date <span class="req">*</span></label><input type="date" id="fromDate"></div>
+              <div class="field dates hidden"><label>To date <span class="req">*</span></label><input type="date" id="toDate"></div>
+              <div class="field"><label>Date submitted by client</label><input type="date" id="recv"></div>
+              <div class="field"><label>Fulfils lawyer requirement</label><select id="reqId"></select></div>
+              <div class="field full"><label>Notes on the document</label><textarea id="desc" rows="2" placeholder="Pages, condition, anything the lawyer should know"></textarea></div>
+              <div class="field full"><label>Soft copy</label>
+                <div class="dropzone" id="dz">PLACEHOLDER</div>
+              </div>
+            </div>
+            <div class="card-foot">
+              <button type="reset" class="btn btn-outline">Clear</button>
+              <button type="submit" class="btn btn-primary" id="addBtn">Save document</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="stack sticky-col">
+          <div class="card">
+            <div class="card-head"><h2>Documents on this file</h2><span class="badge b-blue plain" id="docCount"></span></div>
+            <div class="card-body stack" id="docList" style="max-height:440px;overflow:auto"></div>
+          </div>
+          <div class="card">
+            <div class="card-body stack">
+              <label class="check"><input type="checkbox" id="sendReview" checked><span><b>Send to lawyer for review</b><br><span class="muted small">Moves the case to <i>Under Review</i> and notifies the assigned lawyer.</span></span></label>
+              <button class="btn btn-gold btn-block" id="doneBtn">Done — go to case</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    (function () {
+      const me = PLS.shell({ active: "add-docs", roles: ["admin", "paralegal"], crumbs: '<a href="cases.html">Cases</a> / <strong>Add documents</strong>' });
+      const { db, esc, icon, fileType, caseType, user, fmtDate, fmtDateTime } = PLS;
+      const $ = (id) => document.getElementById(id);
+      let file = null, added = 0, c = null;
+
+      const open = db().cases.filter((x) => PLS.bucketOf(x) !== "closed");
+      $("caseId").innerHTML = '<option value="">Select a case…</option>' + open.map((x) => '<option value="' + x.id + '">' + x.fileNo + " — " + esc(user(x.clientId).name) + " — " + esc(x.title) + "</option>").join("");
+      $("fileTypeId").innerHTML = PLS.options(db().fileTypes.filter((f) => f.active), null, "Select file type…");
+      $("recv").value = PLS.now().slice(0, 10);
+      $("dz").innerHTML = icon("upload") + '<div><b>Click to choose</b> or drag the scanned file here</div><div class="small">PDF, JPG or PNG</div><div class="fname"></div>';
+      const dz = PLS.dropzone($("dz"), (f) => { file = f; if (!$("name").value) $("name").value = f.fileName.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " "); });
+
+      $("fileTypeId").onchange = () => {
+        const ft = fileType($("fileTypeId").value);
+        document.querySelectorAll(".dates").forEach((d) => d.classList.toggle("hidden", !ft.hasDateRange));
+        $("fromDate").required = $("toDate").required = !!ft.hasDateRange;
+      };
+
+      function load(id) {
+        c = PLS.getCase(id);
+        $("body").classList.toggle("hidden", !c);
+        if (!c) { $("caseMeta").innerHTML = ""; return; }
+        history.replaceState(null, "", "?case=" + c.id);
+        $("caseMeta").innerHTML = '<div class="kv"><div><span>Client</span><b>' + esc(user(c.clientId).name) + "</b></div><div><span>Case type</span><b>" + esc(caseType(c.typeId).name) + "</b></div><div><span>Lawyer</span><b>" + esc(user(c.lawyerId).name) + "</b></div><div><span>Status</span>" + PLS.statusBadge(c.status) + "</div></div>";
+        const openReq = c.requirements.filter((r) => r.status === "Open");
+        $("reqId").innerHTML = '<option value="">— Not linked —</option>' + openReq.map((r) => '<option value="' + r.id + '">' + esc(r.text) + "</option>").join("");
+        $("reqBox").innerHTML = openReq.length ? '<div class="callout warn">' + icon("alert") + "<div><b>Documents requested by " + esc(user(c.lawyerId).name) + "</b><ul style=\"margin:6px 0 0;padding-left:18px\">" + openReq.map((r) => "<li>" + esc(r.text) + (r.fileTypeId ? ' <span class="small">(' + esc(fileType(r.fileTypeId).name) + ")</span>" : "") + "</li>").join("") + "</ul></div></div>" : "";
+        renderDocs();
+      }
+      function renderDocs() {
+        $("docCount").textContent = c.documents.length + " total";
+        $("docList").innerHTML = c.documents.length ? c.documents.slice().reverse().map((d, i) =>
+          '<div class="row" style="gap:12px;' + (i < added ? "background:var(--gold-100);margin:-6px -8px;padding:6px 8px;border-radius:8px" : "") + '"><div class="doc-thumb" style="width:34px;height:42px">' + icon("file") + '</div><div style="flex:1;min-width:0"><b class="small" style="color:var(--navy-800)">' + esc(d.name) + '</b><div class="small muted">' + esc(fileType(d.fileTypeId).name) + " · " + fmtDate(d.uploadedAt) + "</div></div>" + (i < added ? '<span class="badge b-amber plain">New</span>' : "") + "</div>").join("") : '<div class="empty" style="padding:20px">No documents yet.</div>';
+      }
+      $("caseId").onchange = () => { added = 0; load($("caseId").value); };
+      const pre = PLS.qs("case"); if (pre) { $("caseId").value = pre; load(pre); }
+
+      $("f").onreset = () => { file = null; dz.clear(); setTimeout(() => $("fileTypeId").onchange(), 0); };
+      $("f").onsubmit = (e) => {
+        e.preventDefault();
+        const ft = fileType($("fileTypeId").value);
+        if (ft.hasDateRange && $("fromDate").value > $("toDate").value) return PLS.toast("Check the dates", "From date must be before To date.");
+        const d = {
+          id: PLS.uid("d"), fileTypeId: ft.id, name: $("name").value.trim(), refNo: $("refNo").value.trim(), description: $("desc").value.trim(),
+          fromDate: ft.hasDateRange ? $("fromDate").value : undefined, toDate: ft.hasDateRange ? $("toDate").value : undefined,
+          submittedOn: $("recv").value, uploadedBy: me.id, uploadedAt: PLS.now(), fileName: file ? file.fileName : "(no soft copy)", data: file ? file.data : null,
+          ov: { verified: false }, remarks: []
+        };
+        c.documents.push(d);
+        const rq = $("reqId").value; if (rq) { const r = c.requirements.find((x) => x.id === rq); r.status = "Submitted"; r.docId = d.id; }
+        PLS.addTimeline(c, me.id, "docs", "Document added: " + d.name);
+        PLS.save(); added++;
+        PLS.toast("Document saved", esc(d.name));
+        $("f").reset(); load(c.id);
+      };
+
+      $("doneBtn").onclick = () => {
+        if (!c) return;
+        if ($("sendReview").checked && added) {
+          c.status = "Under Review";
+          PLS.addTimeline(c, me.id, "status", added + " document(s) uploaded and sent to " + user(c.lawyerId).name + " for review");
+          PLS.save();
+          PLS.notify(c.lawyerId, c.id, "New documents for review", c.fileNo + ": " + added + " document(s) uploaded by " + me.name + ".", ["in-app", "email"]);
+          PLS.notify(c.clientId, c.id, "Documents received", "File " + c.fileNo + ": we have digitised " + added + " document(s) you submitted.", ["in-app", "email"]);
+        }
+        location.href = "case.html?id=" + c.id;
+      };
+    })();
+  </script>
+</body>
+</html>

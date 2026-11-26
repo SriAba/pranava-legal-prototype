@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>My Profile · Pranava Legal Solutions</title>
+  <link rel="icon" href="assets/img/favicon.png">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+  <div id="page" style="display:none">
+    <div class="page-head">
+      <div><h1>My profile</h1><p>Keep your contact details current — updates and credentials are sent to them.</p></div>
+    </div>
+    <div class="split">
+      <form class="card" id="f">
+        <div class="card-head"><h2>Personal details</h2></div>
+        <div class="card-body form-grid">
+          <div class="field"><label>Full name</label><input type="text" id="name"></div>
+          <div class="field"><label>Job title</label><input type="text" id="title"></div>
+          <div class="field"><label>Email</label><input type="email" id="email"></div>
+          <div class="field"><label>Mobile</label><input type="tel" id="phone"></div>
+          <div class="field full"><label>Address</label><textarea id="address" rows="2"></textarea></div>
+          <div class="field"><label>Username</label><input type="text" id="username" readonly></div>
+          <div class="field"><label>Role</label><input type="text" id="role" readonly></div>
+        </div>
+        <div class="card-foot"><button class="btn btn-primary" type="submit">Save changes</button></div>
+      </form>
+      <div class="stack">
+        <div class="card"><div class="card-body" style="text-align:center;padding:28px" id="idCard"></div></div>
+        <form class="card" id="pw">
+          <div class="card-head"><h2>Change password</h2></div>
+          <div class="card-body stack">
+            <div class="field"><label>Current password</label><input type="password" id="cur"></div>
+            <div class="field"><label>New password</label><input type="password" id="new1"></div>
+            <div class="field"><label>Confirm new password</label><input type="password" id="new2"></div>
+          </div>
+          <div class="card-foot"><button class="btn btn-outline" type="submit">Update password</button></div>
+        </form>
+        <div class="card"><div class="card-head"><h2>Notification preferences</h2></div><div class="card-body stack">
+          <label class="row between"><span>Email</span><span class="switch"><input type="checkbox" checked><span></span></span></label>
+          <label class="row between"><span>SMS</span><span class="switch"><input type="checkbox" checked><span></span></span></label>
+          <label class="row between"><span>In-app</span><span class="switch"><input type="checkbox" checked disabled><span></span></span></label>
+        </div></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    (function () {
+      const me = PLS.shell({ active: "profile", crumbs: "<strong>My profile</strong>" });
+      const { esc, initials, ROLE_LABEL } = PLS;
+      const $ = (id) => document.getElementById(id);
+      ["name", "title", "email", "phone", "address", "username"].forEach((k) => $(k).value = me[k] || "");
+      $("role").value = ROLE_LABEL[me.role];
+      if (me.role === "client") $("title").closest(".field").classList.add("hidden");
+      $("idCard").innerHTML = '<div class="avatar lg" style="margin:0 auto 12px;width:80px;height:80px;font-size:28px">' + initials(me.name) + "</div><h2>" + esc(me.name) + '</h2><p class="muted">' + esc(me.title || ROLE_LABEL[me.role]) + '</p><span class="role-pill" style="display:inline-block;margin-top:10px">' + ROLE_LABEL[me.role] + "</span>";
+      $("f").onsubmit = (e) => { e.preventDefault(); ["name", "title", "email", "phone", "address"].forEach((k) => me[k] = $(k).value.trim()); PLS.save(); PLS.queueToast("Profile updated", ""); location.reload(); };
+      $("pw").onsubmit = (e) => {
+        e.preventDefault();
+        if ($("cur").value !== me.password) return PLS.toast("Current password is incorrect", "");
+        if (!$("new1").value || $("new1").value !== $("new2").value) return PLS.toast("Passwords do not match", "");
+        me.password = $("new1").value; PLS.save(); $("pw").reset(); PLS.toast("Password updated", "");
+      };
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cases · Pranava Legal Solutions</title>
+  <link rel="icon" href="assets/img/favicon.png">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+  <div id="page" style="display:none">
+    <div class="page-head">
+      <div>
+        <h1 id="pageTitle">Cases</h1>
+        <p id="pageSub"></p>
+      </div>
+      <div class="actions" id="headActions"></div>
+    </div>
+
+    <div class="stat-tabs" id="statTabs"></div>
+
+    <div class="card">
+      <div class="toolbar">
+        <div class="search" id="searchWrap"></div>
+        <select id="fType" style="width:auto;min-width:200px"></select>
+        <select id="fLawyer" style="width:auto;min-width:180px"></select>
+      </div>
+      <div class="table-wrap"><table class="table" id="tbl"></table></div>
+    </div>
+  </div>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    (function () {
+      const me = PLS.shell({ active: "cases", crumbs: "<strong>Cases</strong>" });
+      const { db, icon, esc, caseType, user, bucketOf, statusBadge, advanceBadge, ovSummary, fmtDate, money, can, casesFor, BUCKET_LABEL } = PLS;
+      const isClient = me.role === "client";
+      let bucket = PLS.qs("tab") || "pending";
+
+      document.getElementById("pageTitle").textContent = isClient ? "My Cases" : "Cases";
+      document.getElementById("pageSub").textContent = isClient
+        ? "Hello " + me.name.split(" ")[0] + " — here are all the files Pranava Legal Solutions is handling for you."
+        : me.role === "lawyer" ? "Files assigned across the firm. Open a case to review documents and update its status."
+        : "All files in the office. Open a case to add documents or follow up on requirements.";
+      if (can.addCase(me)) document.getElementById("headActions").innerHTML = '<a class="btn btn-gold" href="case-new.html">' + icon("plus") + "Add case</a>";
+
+      document.getElementById("searchWrap").innerHTML = icon("search") + '<input type="text" id="q" placeholder="Search by file number, title' + (isClient ? "" : " or client") + '…">';
+      document.getElementById("fType").innerHTML = '<option value="">All case types</option>' + db().caseTypes.map((t) => '<option value="' + t.id + '">' + esc(t.name) + "</option>").join("");
+      const lawyers = db().users.filter((u) => u.role === "lawyer");
+      const fl = document.getElementById("fLawyer");
+      if (isClient) fl.style.display = "none";
+      else fl.innerHTML = '<option value="">All lawyers</option>' + lawyers.map((l) => '<option value="' + l.id + '">' + esc(l.name) + "</option>").join("");
+
+      const all = casesFor(me);
+      const meta = {
+        pending: ["clock", "amber", isClient ? "Need your action / pending" : "Pending"],
+        inprogress: ["folderOpen", "blue", "In Progress"],
+        closed: ["archive", "green", "Closed"]
+      };
+      function renderTabs() {
+        document.getElementById("statTabs").innerHTML = Object.keys(meta).map((k) => {
+          const n = all.filter((c) => bucketOf(c) === k).length;
+          return '<button class="stat-tab ' + (bucket === k ? "active" : "") + '" data-b="' + k + '"><div class="ico ' + meta[k][1] + '">' + icon(meta[k][0]) + '</div><div><div class="num">' + n + '</div><div class="lbl">' + meta[k][2] + "</div></div></button>";
+        }).join("");
+        document.querySelectorAll(".stat-tab").forEach((b) => b.onclick = () => { bucket = b.dataset.b; history.replaceState(null, "", "?tab=" + bucket); renderTabs(); renderTable(); });
+      }
+
+      function clientAction(c) {
+        if (c.advance && c.advance.amount && !c.advance.paid) return '<a class="btn btn-gold btn-sm" href="payment.html?id=' + c.id + '&type=advance" onclick="event.stopPropagation()">' + icon("card") + "Pay advance</a>";
+        if (c.status === "Resolved" && !c.final.paid) return '<a class="btn btn-gold btn-sm" href="payment.html?id=' + c.id + '&type=final" onclick="event.stopPropagation()">' + icon("card") + "Pay & view report</a>";
+        if (c.status === "Documents Required") return '<span class="badge b-red plain">Action needed</span>';
+        return '<a class="btn btn-ghost btn-sm" href="case.html?id=' + c.id + '">Open ' + icon("arrowRight") + "</a>";
+      }
+
+      function renderTable() {
+        const q = (document.getElementById("q").value || "").toLowerCase();
+        const ft = document.getElementById("fType").value, lw = fl.value;
+        const rows = all.filter((c) => bucketOf(c) === bucket)
+          .filter((c) => !ft || c.typeId === ft)
+          .filter((c) => !lw || c.lawyerId === lw)
+          .filter((c) => !q || (c.fileNo + " " + c.title + " " + user(c.clientId).name).toLowerCase().includes(q));
+        const tbl = document.getElementById("tbl");
+        let head, body;
+        if (isClient) {
+          head = "<tr><th>Case number</th><th>Case type</th><th>Advance payment</th><th>Original verification</th><th>Case status</th><th></th></tr>";
+          body = rows.map((c) => {
+            const ov = ovSummary(c);
+            return '<tr class="clickable" data-id="' + c.id + '"><td><div class="file-no">' + c.fileNo + '</div><div class="small muted">' + esc(c.title) + "</div></td><td>" + esc(caseType(c.typeId).name) + "</td><td>" + advanceBadge(c) + '</td><td><span class="badge ' + ov.cls + '">' + ov.label + "</span></td><td>" + statusBadge(c.status) + '</td><td style="text-align:right">' + clientAction(c) + "</td></tr>";
+          }).join("");
+        } else {
+          head = "<tr><th>File no.</th><th>Case / client</th><th>Type</th><th>Lawyer</th><th>Advance</th><th>Original verification</th><th>Status</th><th>Opened</th></tr>";
+          body = rows.map((c) => {
+            const ov = ovSummary(c), open = c.requirements.filter((r) => r.status === "Open").length;
+            return '<tr class="clickable" data-id="' + c.id + '"><td class="file-no">' + c.fileNo + "</td><td><b>" + esc(c.title) + '</b><div class="small muted">' + esc(user(c.clientId).name) + " · " + c.documents.length + " docs" + (open ? ' · <span style="color:var(--red-600)">' + open + " open requirement" + (open > 1 ? "s" : "") + "</span>" : "") + "</div></td><td>" + esc(caseType(c.typeId).name) + "</td><td>" + esc(user(c.lawyerId).name) + "</td><td>" + advanceBadge(c) + '</td><td><span class="badge ' + ov.cls + '">' + ov.label + "</span></td><td>" + statusBadge(c.status) + '</td><td class="small muted">' + fmtDate(c.createdAt) + "</td></tr>";
+          }).join("");
+        }
+        tbl.innerHTML = "<thead>" + head + "</thead><tbody>" + (body || '<tr><td colspan="8"><div class="empty">No ' + BUCKET_LABEL[bucket].toLowerCase() + " cases" + (q || ft || lw ? " match your filters" : "") + ".</div></td></tr>") + "</tbody>";
+        tbl.querySelectorAll("tr.clickable").forEach((tr) => tr.onclick = () => {
+          const c = PLS.getCase(tr.dataset.id);
+          // Clients must pay the advance before opening a file
+          if (isClient && c.advance && c.advance.amount && !c.advance.paid) { location.href = "payment.html?id=" + c.id + "&type=advance"; return; }
+          location.href = "case.html?id=" + c.id;
+        });
+      }
+      ["q", "fType", "fLawyer"].forEach((id) => document.getElementById(id).addEventListener("input", renderTable));
+      renderTabs(); renderTable();
+    })();
+  </script>
+</body>
+</html>

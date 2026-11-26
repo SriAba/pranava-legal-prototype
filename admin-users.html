@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Users · Pranava Legal Solutions</title>
+  <link rel="icon" href="assets/img/favicon.png">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+  <div id="page" style="display:none">
+    <div class="page-head">
+      <div><h1>Users</h1><p>Staff and client accounts. Clients are usually created by the paralegal while opening a case.</p></div>
+      <div class="actions"><button class="btn btn-gold" id="addBtn"></button></div>
+    </div>
+    <div class="card">
+      <div class="toolbar"><div class="segmented" id="roleSeg"></div></div>
+      <div class="table-wrap"><table class="table" id="tbl"></table></div>
+    </div>
+  </div>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    (function () {
+      PLS.shell({ active: "users", roles: ["admin"], crumbs: "Administration / <strong>Users</strong>" });
+      const { db, esc, icon, initials, ROLE_LABEL } = PLS;
+      let role = "";
+      document.getElementById("addBtn").innerHTML = icon("plus") + "Add user";
+      document.getElementById("roleSeg").innerHTML = [["", "All"], ["admin", "Admins"], ["paralegal", "Paralegals"], ["lawyer", "Lawyers"], ["client", "Clients"]].map((r) => '<button data-r="' + r[0] + '" class="' + (r[0] === role ? "active" : "") + '">' + r[1] + "</button>").join("");
+      document.querySelectorAll("#roleSeg button").forEach((b) => b.onclick = () => { role = b.dataset.r; document.querySelectorAll("#roleSeg button").forEach((x) => x.classList.toggle("active", x === b)); render(); });
+      function render() {
+        const list = db().users.filter((u) => !role || u.role === role);
+        document.getElementById("tbl").innerHTML = "<thead><tr><th>Name</th><th>Role</th><th>Email</th><th>Phone</th><th>Username</th><th>Cases</th><th></th></tr></thead><tbody>" +
+          list.map((u) => {
+            const n = db().cases.filter((c) => c.clientId === u.id || c.lawyerId === u.id || c.paralegalId === u.id).length;
+            return '<tr><td><div class="row"><div class="avatar ' + (u.role === "client" ? "" : "blue") + '">' + initials(u.name) + "</div><div><b>" + esc(u.name) + '</b><div class="small muted">' + esc(u.title || "") + "</div></div></div></td><td><span class=\"badge b-navy plain\">" + ROLE_LABEL[u.role] + "</span></td><td>" + esc(u.email) + "</td><td>" + esc(u.phone) + '</td><td class="mono small">' + esc(u.username) + "</td><td>" + n + '</td><td style="text-align:right">' + (u.role === "client" ? '<a class="btn btn-ghost btn-sm" href="case-new.html?client=' + u.id + '">' + icon("plus") + "Case</a>" : "") + "</td></tr>";
+          }).join("") + "</tbody>";
+      }
+      document.getElementById("addBtn").onclick = () => PLS.modal({
+        title: "Add user",
+        body: '<div class="form-grid"><div class="field"><label>Full name</label><input type="text" id="m_name"></div><div class="field"><label>Role</label><select id="m_role"><option value="paralegal">Paralegal</option><option value="lawyer">Lawyer</option><option value="admin">Admin</option><option value="client">Client</option></select></div><div class="field"><label>Email</label><input type="email" id="m_email"></div><div class="field"><label>Mobile</label><input type="tel" id="m_phone"></div><div class="field full"><label>Job title</label><input type="text" id="m_title" placeholder="e.g. Associate"></div></div><p class="small muted" style="margin-top:12px">Login credentials are sent to the user by email and SMS.</p>',
+        foot: '<button class="btn btn-outline" data-close>Cancel</button><button class="btn btn-primary" id="m_save">Create user</button>',
+        onOpen: (el, close) => el.querySelector("#m_save").onclick = () => {
+          const g = (k) => el.querySelector("#m_" + k).value.trim();
+          if (!g("name") || !g("email")) return PLS.toast("Name and email are required", "");
+          const u = { id: PLS.uid("u"), name: g("name"), role: g("role"), email: g("email"), phone: g("phone"), title: g("title"), username: g("email").split("@")[0].toLowerCase(), password: "welcome123" };
+          db().users.push(u); PLS.save();
+          PLS.notify(u.id, null, "Welcome to Pranava Legal Solutions", "Your account is ready. Username: " + u.username, ["email", "sms"]);
+          close(); render();
+        }
+      });
+      render();
+    })();
+  </script>
+</body>
+</html>

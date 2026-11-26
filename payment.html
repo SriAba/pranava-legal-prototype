@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Payments · Pranava Legal Solutions</title>
+  <link rel="icon" href="assets/img/favicon.png">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+  <div id="page" style="display:none"></div>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    (function () {
+      const id = PLS.qs("id"), type = PLS.qs("type") || "advance";
+      const me = PLS.shell({ active: "payments", roles: ["client"], crumbs: id ? '<a href="payment.html">Payments</a> / <strong>Checkout</strong>' : "<strong>Payments</strong>" });
+      const { db, esc, icon, money, caseType, user, fmtDate, fmtDateTime } = PLS;
+      const page = document.getElementById("page");
+      const mine = PLS.casesFor(me);
+
+      /* ---------- List view ---------- */
+      if (!id) {
+        const due = [], history = [];
+        mine.forEach((c) => {
+          if (c.advance.amount) (c.advance.paid ? history : due).push({ c, kind: "advance", amt: c.advance.amount, paid: c.advance.paid, on: c.advance.paidOn, mode: c.advance.mode, ref: c.advance.ref });
+          if (c.status === "Resolved") (c.final.paid ? history : due).push({ c, kind: "final", amt: c.final.amount, paid: c.final.paid, on: c.final.paidOn, mode: c.final.mode, ref: c.final.ref });
+        });
+        const row = (p) => "<tr><td><div class=\"file-no\">" + p.c.fileNo + '</div><div class="small muted">' + esc(p.c.title) + "</div></td><td>" + (p.kind === "advance" ? "Advance" : "Final fee") + "</td><td><b>" + money(p.amt) + "</b></td><td>" +
+          (p.paid ? '<span class="badge b-green">Paid</span><div class="small muted">' + fmtDate(p.on) + " · " + esc(p.mode || "") + "</div>" : '<span class="badge b-red">Due</span>') + '</td><td style="text-align:right">' +
+          (p.paid ? '<button class="btn btn-ghost btn-sm" onclick="PLS.toast(\'Receipt\',\'In the live system the receipt PDF downloads here.\')">' + icon("download") + "Receipt</button>" : '<a class="btn btn-gold btn-sm" href="payment.html?id=' + p.c.id + "&type=" + p.kind + '">' + icon("card") + "Pay now</a>") + "</td></tr>";
+        page.innerHTML = '<div class="page-head"><div><h1>Payments</h1><p>Pay advances and final fees securely, and download receipts.</p></div></div>' +
+          '<div class="card" style="margin-bottom:20px"><div class="card-head"><h2>Due now</h2><span class="badge ' + (due.length ? "b-red" : "b-green") + ' plain">' + (due.length ? money(due.reduce((s, p) => s + p.amt, 0)) + " outstanding" : "Nothing due") + '</span></div><div class="table-wrap"><table class="table"><thead><tr><th>Case</th><th>For</th><th>Amount</th><th>Status</th><th></th></tr></thead><tbody>' + (due.map(row).join("") || '<tr><td colspan="5"><div class="empty">You have no pending payments.</div></td></tr>') + "</tbody></table></div></div>" +
+          '<div class="card"><div class="card-head"><h2>Payment history</h2></div><div class="table-wrap"><table class="table"><thead><tr><th>Case</th><th>For</th><th>Amount</th><th>Status</th><th></th></tr></thead><tbody>' + (history.map(row).join("") || '<tr><td colspan="5"><div class="empty">No payments yet.</div></td></tr>') + "</tbody></table></div></div>";
+        return;
+      }
+
+      /* ---------- Checkout ---------- */
+      const c = PLS.getCase(id);
+      if (!c || c.clientId !== me.id) { page.innerHTML = '<div class="card"><div class="empty">Case not found.</div></div>'; return; }
+      const t = caseType(c.typeId);
+      const isFinal = type === "final";
+      const amt = isFinal ? c.final.amount : c.advance.amount;
+      const alreadyPaid = isFinal ? c.final.paid : c.advance.paid;
+      if (alreadyPaid || !amt) { location.replace("case.html?id=" + c.id); return; }
+      const gst = Math.round(amt * 0.18);
+
+      page.innerHTML =
+        '<div class="page-head"><div><h1>' + (isFinal ? "Final payment" : "Advance payment") + "</h1><p>" +
+          (isFinal ? "Your file has been resolved. Complete the final payment to unlock your final report." : "Pay the advance to open your file and let our team start work.") + "</p></div></div>" +
+        '<div class="pay-layout">' +
+          '<div class="stack">' +
+            (isFinal ? '<div class="card"><div class="lock-screen" style="padding:26px"><div class="big-ico">' + icon("lock") + '</div><h2>Your final report is ready</h2><p class="muted" style="margin-top:6px">' + esc(user(c.lawyerId).name) + " resolved file " + c.fileNo + " on " + fmtDate(c.closedAt) + ". It unlocks as soon as this payment is complete.</p></div></div>" : "") +
+            '<div class="card"><div class="card-head"><h2>Choose a payment method</h2><span class="small muted">' + icon("lock", 'width="13" height="13" style="vertical-align:-2px"') + " Secure checkout</span></div><div class=\"card-body stack\" id=\"methods\">" +
+              [["upi", "UPI", "Google Pay, PhonePe, Paytm or any UPI app", "upi"], ["card", "Credit / debit card", "Visa, Mastercard, RuPay", "card"], ["nb", "Net banking", "All major Indian banks", "bank"]].map((m, i) =>
+                '<div class="pay-method ' + (i === 0 ? "active" : "") + '" data-m="' + m[0] + '"><div class="ico">' + icon(m[3]) + '</div><div style="flex:1"><b>' + m[1] + '</b><div class="small muted">' + m[2] + '</div></div><input type="radio" name="pm" ' + (i === 0 ? "checked" : "") + "></div>").join("") +
+              '<div id="methodFields"></div>' +
+            "</div></div>" +
+          "</div>" +
+          '<div class="card sticky-col"><div class="card-head"><h2>Summary</h2></div><div class="card-body">' +
+            '<div class="small muted">Case</div><div class="file-no" style="font-family:ui-monospace,Consolas,monospace;font-weight:700;color:var(--navy-800)">' + c.fileNo + '</div><div style="font-size:13px;margin-bottom:14px">' + esc(c.title) + "</div>" +
+            '<div class="summary-row"><span>' + esc(t.name) + " — " + (isFinal ? "final fee" : "advance") + "</span><span>" + money(amt) + "</span></div>" +
+            '<div class="summary-row"><span class="muted">GST (18%) — illustrative</span><span>' + money(gst) + "</span></div>" +
+            (isFinal && c.advance.amount ? '<div class="summary-row"><span class="muted">Advance paid earlier (not included)</span><span class="muted">' + money(c.advance.amount) + "</span></div>" : "") +
+            '<div class="summary-row total"><span>Total</span><span>' + money(amt + gst) + "</span></div>" +
+            '<button class="btn btn-gold btn-lg btn-block" id="payBtn" style="margin-top:16px">Pay ' + money(amt + gst) + "</button>" +
+            '<a class="btn btn-ghost btn-block" href="cases.html" style="margin-top:8px;justify-content:center">Pay later</a>' +
+            '<p class="small muted" style="margin-top:10px;text-align:center">Prototype — no real payment is taken.</p>' +
+          "</div></div>" +
+        "</div>";
+
+      const fields = {
+        upi: '<div class="field"><label>UPI ID</label><input type="text" placeholder="yourname@okbank" value="' + esc(me.name.split(" ")[0].toLowerCase()) + '@okhdfc"></div>',
+        card: '<div class="form-grid"><div class="field full"><label>Card number</label><input type="text" placeholder="1234 5678 9012 3456"></div><div class="field"><label>Expiry</label><input type="text" placeholder="MM/YY"></div><div class="field"><label>CVV</label><input type="password" placeholder="•••"></div><div class="field full"><label>Name on card</label><input type="text" value="' + esc(me.name) + '"></div></div>',
+        nb: '<div class="field"><label>Bank</label><select><option>HDFC Bank</option><option>State Bank of India</option><option>ICICI Bank</option><option>Axis Bank</option><option>Canara Bank</option></select></div>'
+      };
+      let method = "upi";
+      const setMethod = (m) => { method = m; document.querySelectorAll(".pay-method").forEach((x) => { x.classList.toggle("active", x.dataset.m === m); x.querySelector("input").checked = x.dataset.m === m; }); document.getElementById("methodFields").innerHTML = fields[m]; };
+      document.querySelectorAll(".pay-method").forEach((x) => x.onclick = () => setMethod(x.dataset.m));
+      setMethod("upi");
+
+      document.getElementById("payBtn").onclick = function () {
+        this.disabled = true; this.textContent = "Processing…";
+        setTimeout(() => {
+          const mode = { upi: "Online (UPI)", card: "Online (Card)", nb: "Online (Net banking)" }[method];
+          const ref = method.toUpperCase() + "-" + Math.floor(1e9 + Math.random() * 9e9);
+          const target = isFinal ? c.final : c.advance;
+          Object.assign(target, { paid: true, paidOn: PLS.now(), mode, ref });
+          PLS.addTimeline(c, me.id, "payment", (isFinal ? "Final payment" : "Advance") + " of " + money(amt) + " paid online (" + ref + ")");
+          PLS.save();
+          PLS.notify(me.id, c.id, "Payment received", "File " + c.fileNo + ": " + money(amt + gst) + " received. Ref " + ref + ".", ["in-app", "email", "sms"]);
+          PLS.notifyStaff(c, (isFinal ? "Final" : "Advance") + " payment received", c.fileNo + ": " + money(amt) + " paid online by " + me.name);
+          PLS.modal({
+            title: "Payment successful",
+            body: '<div class="lock-screen" style="padding:10px"><div class="big-ico" style="background:var(--green-100);color:var(--green-600)">' + icon("checkCircle") + "</div><h2>" + money(amt + gst) + ' paid</h2><p class="muted" style="margin-top:6px">Reference <span class="mono">' + ref + "</span><br>A receipt has been sent to " + esc(me.email) + ".</p></div>",
+            foot: '<a class="btn btn-gold" href="case.html?id=' + c.id + '">' + (isFinal ? "View final report" : "Open my file") + "</a>"
+          });
+        }, 1100);
+      };
+    })();
+  </script>
+</body>
+</html>

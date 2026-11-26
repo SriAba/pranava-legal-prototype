@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 132" role="img" aria-label="Pranava Legal Solutions emblem">
+  <defs>
+    <linearGradient id="plsShield" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1F4E9E"/>
+      <stop offset="1" stop-color="#0B2349"/>
+    </linearGradient>
+    <linearGradient id="plsGold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFD54A"/>
+      <stop offset="1" stop-color="#F2A900"/>
+    </linearGradient>
+    <clipPath id="plsSunClip"><rect x="0" y="0" width="120" height="58"/></clipPath>
+  </defs>
+  <!-- Arched shield: strength, with a rounded, open doorway feel -->
+  <path d="M60 4 C88 4 112 22 112 52 V92 C112 108 88 122 60 128 C32 122 8 108 8 92 V52 C8 22 32 4 60 4 Z" fill="url(#plsShield)"/>
+  <path d="M60 11 C84 11 105 27 105 53 V91 C105 104 84 116 60 121 C36 116 15 104 15 91 V53 C15 27 36 11 60 11 Z" fill="none" stroke="#FFC72C" stroke-opacity=".55" stroke-width="1.5"/>
+  <!-- Rising sun: hope, clarity -->
+  <g clip-path="url(#plsSunClip)">
+    <circle cx="60" cy="58" r="22" fill="url(#plsGold)"/>
+    <g stroke="#FFC72C" stroke-width="3" stroke-linecap="round">
+      <line x1="60" y1="27" x2="60" y2="20"/>
+      <line x1="38" y1="36" x2="33" y2="31"/>
+      <line x1="82" y1="36" x2="87" y2="31"/>
+      <line x1="29" y1="52" x2="23" y2="50"/>
+      <line x1="91" y1="52" x2="97" y2="50"/>
+    </g>
+  </g>
+  <!-- Pediment + three pillars: the institution of law -->
+  <path d="M28 62 H92 L88 68 H32 Z" fill="#E8F0FF"/>
+  <rect x="35" y="70" width="9" height="30" rx="1.5" fill="#E8F0FF"/>
+  <rect x="55.5" y="70" width="9" height="30" rx="1.5" fill="#E8F0FF"/>
+  <rect x="76" y="70" width="9" height="30" rx="1.5" fill="#E8F0FF"/>
+  <!-- Golden foundation steps -->
+  <rect x="30" y="102" width="60" height="5" rx="1.5" fill="url(#plsGold)"/>
+  <rect x="29" y="109" width="62" height="5" rx="1.5" fill="url(#plsGold)"/>
+</svg>

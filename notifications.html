@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Notifications · Pranava Legal Solutions</title>
+  <link rel="icon" href="assets/img/favicon.png">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+  <div id="page" style="display:none">
+    <div class="page-head">
+      <div><h1>Notifications</h1><p id="sub">Updates about your files. Important ones are also sent by email and SMS.</p></div>
+      <div class="actions"><button class="btn btn-outline" id="markAll"></button></div>
+    </div>
+    <div class="card">
+      <div class="tabs" id="tabs"></div>
+      <div id="list"></div>
+    </div>
+  </div>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    (function () {
+      const me = PLS.shell({ active: "notifications", crumbs: "<strong>Notifications</strong>" });
+      const { db, esc, icon, user, fmtDateTime, getCase } = PLS;
+      let tab = "mine";
+      document.getElementById("markAll").innerHTML = icon("check") + "Mark all as read";
+      const tabs = [["mine", "My notifications"]];
+      if (me.role === "admin") { tabs.push(["outbox", "Email & SMS outbox (all users)"]); document.getElementById("sub").textContent = "Your notifications, plus a log of every message the system has sent."; }
+      function render() {
+        document.getElementById("tabs").innerHTML = tabs.length > 1 ? tabs.map((t) => '<button class="tab ' + (t[0] === tab ? "active" : "") + '" data-t="' + t[0] + '">' + t[1] + "</button>").join("") : "";
+        document.querySelectorAll(".tab").forEach((b) => b.onclick = () => { tab = b.dataset.t; render(); });
+        const list = tab === "mine" ? db().notifications.filter((n) => n.to === me.id) : db().notifications;
+        document.getElementById("list").innerHTML = list.length ? list.map((n) => {
+          const c = n.caseId ? getCase(n.caseId) : null;
+          return '<div class="notif-item ' + (n.read || tab !== "mine" ? "" : "unread") + '" data-id="' + n.id + '" style="grid-template-columns:auto 1fr auto;align-items:start;gap:14px;padding:16px 20px">' +
+            '<div class="avatar blue" style="width:36px;height:36px">' + icon("bell", 'width="16" height="16"') + "</div>" +
+            "<div><b>" + esc(n.title) + "</b>" + (tab === "outbox" ? ' <span class="small muted">→ ' + esc(user(n.to).name) + "</span>" : "") + "<span style=\"display:block;margin-top:2px\">" + esc(n.body) + "</span><small>" + fmtDateTime(n.at) + (c ? " · " + c.fileNo : "") + "</small></div>" +
+            '<div class="row" style="gap:4px">' + n.channels.map((ch) => '<span class="badge plain ' + (ch === "email" ? "b-blue" : ch === "sms" ? "b-amber" : "b-gray") + '">' + (ch === "in-app" ? "In-app" : ch.toUpperCase()) + "</span>").join("") + "</div></div>";
+        }).join("") : '<div class="empty">No notifications yet.</div>';
+        document.querySelectorAll(".notif-item").forEach((el) => el.onclick = () => {
+          const n = PLS.byId(db().notifications, el.dataset.id);
+          if (tab === "mine") { n.read = true; PLS.save(); }
+          if (n.caseId && (me.role !== "client" || getCase(n.caseId).clientId === me.id)) location.href = "case.html?id=" + n.caseId;
+        });
+      }
+      document.getElementById("markAll").onclick = () => { db().notifications.forEach((n) => { if (n.to === me.id) n.read = true; }); PLS.save(); location.reload(); };
+      render();
+    })();
+  </script>
+</body>
+</html>

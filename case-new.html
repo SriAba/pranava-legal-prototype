@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>New Case · Pranava Legal Solutions</title>
+  <link rel="icon" href="assets/img/favicon.png">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+  <div id="page" style="display:none">
+    <div class="page-head">
+      <div>
+        <h1>Add new case</h1>
+        <p>Create the file, link the client and record the advance. The client is notified as soon as you save.</p>
+      </div>
+      <div class="actions"><a class="btn btn-outline" href="cases.html">Cancel</a></div>
+    </div>
+
+    <form id="f" class="split">
+      <div class="stack">
+        <!-- Client -->
+        <div class="card">
+          <div class="card-head"><h2>1. Client</h2>
+            <div class="segmented" id="clientMode"><button type="button" class="active" data-m="existing">Existing client</button><button type="button" data-m="new">New client</button></div>
+          </div>
+          <div class="card-body">
+            <div id="existingBox" class="form-grid">
+              <div class="field full">
+                <label>Select client <span class="req">*</span></label>
+                <select id="clientId"></select>
+              </div>
+              <div class="full" id="clientPreview"></div>
+            </div>
+            <div id="newBox" class="form-grid hidden">
+              <div class="field"><label>Full name <span class="req">*</span></label><input type="text" id="nName" placeholder="e.g. Priya Shankar"></div>
+              <div class="field"><label>Mobile number <span class="req">*</span></label><input type="tel" id="nPhone" placeholder="+91"></div>
+              <div class="field"><label>Email <span class="req">*</span></label><input type="email" id="nEmail" placeholder="name@example.com"></div>
+              <div class="field"><label>Username</label><input type="text" id="nUser" readonly placeholder="Generated from email"><span class="hint">A temporary password is generated and sent by email &amp; SMS.</span></div>
+              <div class="field full"><label>Address</label><textarea id="nAddr" rows="2" placeholder="Postal address"></textarea></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Case -->
+        <div class="card">
+          <div class="card-head"><h2>2. Case details</h2><span class="muted small">File number: <b class="mono" id="fileNo"></b></span></div>
+          <div class="card-body form-grid">
+            <div class="field"><label>Case type <span class="req">*</span></label><select id="typeId" required></select></div>
+            <div class="field"><label>Assigned lawyer <span class="req">*</span></label><select id="lawyerId" required></select></div>
+            <div class="field full"><label>Case title <span class="req">*</span></label><input type="text" id="title" required placeholder="e.g. Title verification — Site No. 12, HSR Layout"></div>
+            <div class="field full"><label>Summary of the request</label><textarea id="desc" placeholder="What the client asked for, received offline"></textarea></div>
+            <div class="field"><label>Paralegal</label><select id="paralegalId"></select></div>
+            <div class="field"><label>Date request received</label><input type="date" id="recvDate"></div>
+            <div class="full" id="typeInfo"></div>
+          </div>
+        </div>
+
+        <!-- Payment -->
+        <div class="card" id="payCard">
+          <div class="card-head"><h2>3. Advance payment</h2></div>
+          <div class="card-body form-grid">
+            <div class="field"><label>Advance amount (₹)</label><input type="number" id="advAmt" min="0" step="500"><span class="hint" id="advHint"></span></div>
+            <div class="field" style="align-self:end">
+              <label class="check"><input type="checkbox" id="paid"><span><b>Payment made</b><br><span class="muted small">Client has paid outside the application (cash, cheque, bank transfer). You can also update this later from the case page.</span></span></label>
+            </div>
+            <div class="full form-grid hidden" id="paidBox" style="padding:14px;background:var(--blue-50);border-radius:10px">
+              <div class="field"><label>Mode</label><select id="payMode"><option>Paid at office (Cash/Cheque)</option><option>Bank transfer (NEFT/IMPS)</option><option>UPI at office</option></select></div>
+              <div class="field"><label>Receipt / reference no.</label><input type="text" id="payRef" placeholder="e.g. Receipt #0440"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: summary -->
+      <div class="stack sticky-col">
+        <div class="card">
+          <div class="card-head"><h2>Client notification</h2><span class="badge b-blue plain">Email · SMS · In-app</span></div>
+          <div class="card-body" id="notifPreview"></div>
+        </div>
+        <div class="card">
+          <div class="card-body stack">
+            <label class="check"><input type="checkbox" id="goDocs" checked><span>Go to <b>Add Documents</b> after saving</span></label>
+            <button class="btn btn-gold btn-lg btn-block" type="submit">Create case &amp; notify client</button>
+          </div>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    (function () {
+      const me = PLS.shell({ active: "new-case", roles: ["admin", "paralegal", "lawyer"], crumbs: '<a href="cases.html">Cases</a> / <strong>New case</strong>' });
+      const { db, esc, options, caseType, money, user } = PLS;
+      const $ = (id) => document.getElementById(id);
+      let mode = "existing";
+      const fileNo = PLS.nextFileNo();
+      $("fileNo").textContent = fileNo;
+      $("recvDate").value = PLS.now().slice(0, 10);
+
+      const clients = db().users.filter((u) => u.role === "client");
+      $("clientId").innerHTML = '<option value="">Search or select a client…</option>' + clients.map((c) => '<option value="' + c.id + '">' + esc(c.name) + " — " + esc(c.phone) + "</option>").join("");
+      $("typeId").innerHTML = options(db().caseTypes.filter((t) => t.active), null, "Select case type…");
+      $("lawyerId").innerHTML = options(db().users.filter((u) => u.role === "lawyer"), me.role === "lawyer" ? me.id : null, "Select lawyer…");
+      $("paralegalId").innerHTML = options(db().users.filter((u) => u.role === "paralegal"), "u2");
+      const pre = PLS.qs("client"); if (pre) $("clientId").value = pre;
+
+      document.querySelectorAll("#clientMode button").forEach((b) => b.onclick = () => {
+        mode = b.dataset.m;
+        document.querySelectorAll("#clientMode button").forEach((x) => x.classList.toggle("active", x === b));
+        $("existingBox").classList.toggle("hidden", mode !== "existing");
+        $("newBox").classList.toggle("hidden", mode !== "new");
+        preview();
+      });
+      $("nEmail").addEventListener("input", () => { $("nUser").value = ($("nEmail").value.split("@")[0] || "").toLowerCase().replace(/[^a-z0-9.]/g, ""); });
+
+      $("typeId").onchange = () => {
+        const t = caseType($("typeId").value);
+        if (!t.id) { $("typeInfo").innerHTML = ""; return; }
+        $("advAmt").value = t.advanceRequired ? t.advanceAmount : 0;
+        $("advAmt").disabled = !t.advanceRequired;
+        $("advHint").textContent = t.advanceRequired ? "Auto-filled from the case type configuration (" + money(t.advanceAmount) + "). You may adjust it." : "This case type does not need an advance.";
+        $("typeInfo").innerHTML = '<div class="callout info">' + PLS.icon("info") + "<div><b>" + esc(t.name) + "</b> — " + esc(t.description || "") + "<br>Advance: <b>" + (t.advanceRequired ? money(t.advanceAmount) : "Not required") + "</b> · Original verification: <b>" + (t.ovRequired ? "Required" : "Not required") + "</b> · Default final fee: <b>" + money(t.finalFee) + "</b></div></div>";
+        preview();
+      };
+      $("paid").onchange = () => { $("paidBox").classList.toggle("hidden", !$("paid").checked); preview(); };
+      ["clientId", "nName", "nEmail", "advAmt"].forEach((id) => $(id).addEventListener("input", preview));
+
+      function preview() {
+        const amt = Number($("advAmt").value || 0), paid = $("paid").checked;
+        let html;
+        if (mode === "new") {
+          const nm = $("nName").value || "New client";
+          html = '<p class="small muted" style="margin-bottom:8px">New user — welcome message with login credentials</p>' +
+            '<div class="note" style="background:#fff;border:1px solid var(--line);border-left:3px solid var(--blue-600)"><b>Welcome to Pranava Legal Solutions</b><br>Dear ' + esc(nm) + ", your account has been created. Username: <span class=\"mono\">" + esc($("nUser").value || "…") + '</span>, temporary password: <span class="mono">••••••</span>. Your file number is <b>' + fileNo + "</b>." + (amt && !paid ? " An advance of " + money(amt) + " is due — you can pay after signing in." : "") + "</div>";
+        } else {
+          const c = user($("clientId").value);
+          html = '<p class="small muted" style="margin-bottom:8px">Existing user — case added message</p>' +
+            '<div class="note" style="background:#fff;border:1px solid var(--line);border-left:3px solid var(--blue-600)"><b>A new case has been added to your profile</b><br>Dear ' + esc(c.id ? c.name : "client") + ", file <b>" + fileNo + "</b> has been opened for you." + (amt && !paid ? " An advance of " + money(amt) + " is due — you can pay after signing in." : "") + "</div>";
+          $("clientPreview").innerHTML = c.id ? '<div class="callout info">' + PLS.icon("user") + "<div><b>" + esc(c.name) + "</b> · " + esc(c.email) + " · " + esc(c.phone) + "<br><span class=\"small\">" + esc(c.address || "") + " · " + PLS.casesFor(c).length + " existing case(s)</span></div></div>" : "";
+        }
+        $("notifPreview").innerHTML = html;
+      }
+      preview();
+
+      $("f").onsubmit = (e) => {
+        e.preventDefault();
+        let clientId;
+        if (mode === "existing") {
+          clientId = $("clientId").value;
+          if (!clientId) return PLS.toast("Select a client", "Choose an existing client or switch to New client.");
+        } else {
+          if (!$("nName").value || !$("nEmail").value || !$("nPhone").value) return PLS.toast("Client details missing", "Name, mobile and email are required.");
+          const u = { id: PLS.uid("u"), role: "client", name: $("nName").value.trim(), email: $("nEmail").value.trim(), phone: $("nPhone").value.trim(), address: $("nAddr").value.trim(), username: $("nUser").value || PLS.uid("user"), password: "welcome123" };
+          db().users.push(u); clientId = u.id;
+        }
+        const t = caseType($("typeId").value);
+        const amt = t.advanceRequired ? Number($("advAmt").value || 0) : 0;
+        const paid = $("paid").checked || !amt;
+        const c = {
+          id: PLS.uid("c"), fileNo, title: $("title").value.trim(), typeId: t.id, clientId,
+          paralegalId: $("paralegalId").value, lawyerId: $("lawyerId").value,
+          createdAt: PLS.now(), status: "Awaiting Documents", description: $("desc").value.trim(),
+          advance: amt ? { amount: amt, paid: $("paid").checked, mode: $("paid").checked ? $("payMode").value : undefined, ref: $("payRef").value, paidOn: $("paid").checked ? PLS.now() : undefined } : { amount: 0, paid: true, mode: "Not applicable" },
+          final: { amount: t.finalFee || 0, paid: false },
+          documents: [], requirements: [], notes: [], reviews: [], timeline: []
+        };
+        PLS.addTimeline(c, me.id, "created", "Case created by " + me.name + " and assigned to " + user(c.lawyerId).name + (amt ? (c.advance.paid ? "; advance marked paid (" + c.advance.mode + ")" : "; advance of " + money(amt) + " due") : ""));
+        db().cases.push(c); PLS.save();
+        const cl = user(clientId);
+        if (mode === "new") PLS.notify(clientId, c.id, "Welcome to Pranava Legal Solutions", "Your account is ready. Username: " + cl.username + ". File " + fileNo + " has been created." + (amt && !paid ? " Advance due: " + money(amt) + "." : ""), ["in-app", "email", "sms"]);
+        else PLS.notify(clientId, c.id, "A new case has been added to your profile", "File " + fileNo + " (" + t.name + ") has been created." + (amt && !paid ? " Advance due: " + money(amt) + "." : ""), ["in-app", "email", "sms"]);
+        if (c.lawyerId !== me.id) PLS.notify(c.lawyerId, c.id, "New case assigned", fileNo + " — " + c.title, ["in-app"]);
+        location.href = $("goDocs").checked ? "documents-add.html?case=" + c.id : "case.html?id=" + c.id;
+      };
+    })();
+  </script>
+</body>
+</html>

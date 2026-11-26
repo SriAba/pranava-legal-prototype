@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>File Types · Pranava Legal Solutions</title>
+  <link rel="icon" href="assets/img/favicon.png">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+  <div id="page" style="display:none">
+    <div class="page-head">
+      <div><h1>File types</h1><p>Document categories used when adding documents. Turn on a date range for documents that cover a period, like an EC or bank statement.</p></div>
+      <div class="actions"><button class="btn btn-gold" id="addBtn"></button></div>
+    </div>
+    <div class="card"><div class="table-wrap"><table class="table" id="tbl"></table></div></div>
+  </div>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    (function () {
+      PLS.shell({ active: "file-types", roles: ["admin"], crumbs: "Administration / <strong>File types</strong>" });
+      const { db, esc, icon } = PLS;
+      document.getElementById("addBtn").innerHTML = icon("plus") + "Add file type";
+      function render() {
+        const count = (id) => db().cases.reduce((s, c) => s + c.documents.filter((d) => d.fileTypeId === id).length, 0);
+        document.getElementById("tbl").innerHTML = "<thead><tr><th>File type</th><th>From / to dates</th><th>Documents</th><th>Status</th><th></th></tr></thead><tbody>" +
+          db().fileTypes.map((f) => '<tr><td><div class="row"><div class="doc-thumb" style="width:28px;height:34px">' + icon("file", 'width="14" height="14"') + "</div><b>" + esc(f.name) + "</b></div></td><td>" +
+            (f.hasDateRange ? '<span class="badge b-blue">Captured</span>' : '<span class="badge b-gray">Not needed</span>') + "</td><td>" + count(f.id) + "</td><td>" +
+            (f.active ? '<span class="badge b-green">Active</span>' : '<span class="badge b-gray">Inactive</span>') + '</td><td style="text-align:right"><button class="btn btn-ghost btn-sm" data-edit="' + f.id + '">' + icon("edit") + "Edit</button></td></tr>").join("") + "</tbody>";
+        document.querySelectorAll("[data-edit]").forEach((b) => b.onclick = () => edit(PLS.byId(db().fileTypes, b.dataset.edit)));
+      }
+      function edit(f) {
+        const isNew = !f;
+        f = f || { name: "", hasDateRange: false, active: true };
+        PLS.modal({
+          title: isNew ? "Add file type" : "Edit file type",
+          body: '<div class="stack"><div class="field"><label>Name <span class="req">*</span></label><input type="text" id="m_name" value="' + esc(f.name) + '" placeholder="e.g. Occupancy Certificate"></div>' +
+            '<label class="row" style="gap:12px"><span class="switch"><input type="checkbox" id="m_dr" ' + (f.hasDateRange ? "checked" : "") + '><span></span></span><span><b>Has from date and to date</b><br><span class="small muted">Paralegals must enter the period the document covers.</span></span></label>' +
+            '<label class="row" style="gap:12px"><span class="switch"><input type="checkbox" id="m_act" ' + (f.active ? "checked" : "") + '><span></span></span>Active</label></div>',
+          foot: '<button class="btn btn-outline" data-close>Cancel</button><button class="btn btn-primary" id="m_save">Save</button>',
+          onOpen: (el, close) => el.querySelector("#m_save").onclick = () => {
+            const name = el.querySelector("#m_name").value.trim();
+            if (!name) return PLS.toast("Name required", "");
+            Object.assign(f, { name, hasDateRange: el.querySelector("#m_dr").checked, active: el.querySelector("#m_act").checked });
+            if (isNew) { f.id = PLS.uid("ft"); db().fileTypes.push(f); }
+            PLS.save(); close(); render(); PLS.toast(isNew ? "File type added" : "File type updated", esc(name));
+          }
+        });
+      }
+      document.getElementById("addBtn").onclick = () => edit(null);
+      render();
+    })();
+  </script>
+</body>
+</html>
